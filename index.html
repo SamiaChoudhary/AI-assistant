@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart AI Voice Assistant</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .assistant-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 40px;
+            border-radius: 24px;
+            backdrop-filter: blur(15px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            width: 400px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        h1 { margin-top: 0; color: #00d2ff; }
+        .mic-btn {
+            background: #00d2ff;
+            border: none;
+            color: white;
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            font-size: 32px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.4);
+            transition: 0.3s ease;
+            margin: 25px 0;
+        }
+        .mic-btn:hover { transform: scale(1.08); }
+        .mic-btn.listening {
+            background: #ff4757;
+            animation: pulse 1.5s infinite;
+            box-shadow: 0 0 20px rgba(255, 71, 87, 0.6);
+        }
+        #status { font-style: italic; color: #b2bec3; }
+        #output { font-size: 16px; line-height: 1.5; text-align: left; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; min-height: 80px; max-height: 200px; overflow-y: auto;}
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(255, 71, 87, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="assistant-card">
+        <h1>Smart AI Assistant</h1>
+        <p id="status">Click mic and ask ANYTHING...</p>
+        <button class="mic-btn" id="micBtn">🎙️</button>
+        <div id="output">Your conversation will appear here...</div>
+    </div>
+
+    <script>
+        const micBtn = document.getElementById('micBtn');
+        const status = document.getElementById('status');
+        const output = document.getElementById('output');
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (!SpeechRecognition) {
+            alert("Please use Google Chrome for voice support.");
+        } else {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+
+            micBtn.addEventListener('click', () => {
+                try { recognition.start(); } catch(e) { console.log("Already listening"); }
+            });
+
+            recognition.onstart = () => {
+                micBtn.classList.add('listening');
+                status.innerText = "Listening to your voice...";
+            };
+
+            recognition.onspeechend = () => {
+                recognition.stop();
+                micBtn.classList.remove('listening');
+                status.innerText = "Thinking...";
+            };
+
+            recognition.onresult = async (event) => {
+                const userQuestion = event.results[0][0].transcript;
+                output.innerHTML = "<strong>You:</strong> " + '"' + userQuestion + '"';
+                askTheAI(userQuestion);
+            };
+        }
+
+        async function askTheAI(promptText) {
+            let cleanQuery = promptText.toLowerCase().trim();
+            let aiReply = "";
+
+            // 1. Check for quick custom chat logic locally
+            if (cleanQuery.includes('hello') || cleanQuery.includes('hi ')) {
+                aiReply = "Hello! I am your AI assistant. How can I help you today?";
+            } else if (cleanQuery.includes('how are you')) {
+                aiReply = "I am doing great, thank you for asking! How are you doing?";
+            } else if (cleanQuery.includes('your name') || cleanQuery.includes('who are you')) {
+                aiReply = "I am your custom-built web voice assistant.";
+            } else if (cleanQuery.includes('time')) {
+                aiReply = "The current time is " + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            } else {
+                // 2. If it's a general question, look it up instantly using a free public endpoint
+                // We clean up phrases like "what is", "explain me about", etc.
+                let topic = cleanQuery
+                    .replace("what is", "")
+                    .replace("what are", "")
+                    .replace("explain me about", "")
+                    .replace("tell me about", "")
+                    .replace("who is", "")
+                    .trim();
+
+                try {
+                    // Fetching directly from an open, unrestricted knowledge API
+                    const url = "https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(topic);
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    
+                    if (data.extract) {
+                        aiReply = data.extract;
+                    } else {
+                        aiReply = "I found some information on " + topic + ", but I couldn't summarize it easily. Try phrasing it slightly differently!";
+                    }
+                } catch (err) {
+                    aiReply = "I understand you are asking about " + topic + ", but I ran into a small network hiccup trying to process it.";
+                }
+            }
+
+            // Update UI with the final reply
+            output.innerHTML += "<br><br><strong style='color:#00d2ff'>AI:</strong> " + aiReply;
+            status.innerText = "Click mic to ask another question!";
+
+            // Talk back out loud
+            const utterance = new SpeechSynthesisUtterance(aiReply);
+            window.speechSynthesis.speak(utterance);
+        }
+    </script>
+</body>
+</html>
